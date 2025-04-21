@@ -1,0 +1,237 @@
+---
+title: "Tarea 2. Análisis Exploratorio de Datos"
+date: "Marzo 2025"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 1
+    theme: cerulean
+---
+
+```{=html}
+<style>
+body {
+text-align: justify}
+</style>
+```
+
+```{=html}
+<style type="text/css">
+body{/*Normal*/
+     font-size: 20px;
+}
+</style>
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library(tidyverse)
+library(discrtr) # A companion package for the book Introduction to Discrete Choice Analysis with `R`
+library(mlogit) # Multinomial Logit Models
+library(readr) # Read Rectangular Text Data
+
+library(gplots) # Various R Programming Tools for Plotting Data
+library(ggmosaic) # Mosaic Plots in the 'ggplot2' Framework
+library(treemapify)
+library(ggridges)
+library(ggalluvial)
+library(plotly)
+```
+
+
+```{r}
+data(Car)
+glimpse(Car)
+```
+
+
+```{r}
+data(Car)
+
+cat("Número de variables numéricas:", sum(sapply(Car, is.numeric)), "\n",
+    "Número de variables categóricas:", sum(sapply(Car, is.factor)), "\n",
+    "Número total de variables:", ncol(Car), "\n")
+
+```
+
+
+
+*¿Cuántas variables hay en este conjunto de datos y de qué tipo (es decir, categóricas/cuantitativas)?* 
+
+
+En este conjunto de datos, hay un total de 70 variables. Tenemos 57 datos cuantitativos y tan solo 13 categóricos.
+
+
+
+
+
+*Elija cuatro variables categóricas relevantes de este conjunto de datos y descríbalas mediante técnicas univariadas, bivariadas y multivariadas. Analice sus resultados.*
+
+
+
+En este caso es necesario añadir columnas acerca de la elección, las gráficas se realizarán con la data frame `new_car`:
+
+
+```{r}
+new_car <- Car
+choice_char <- gsub("choice","", new_car$choice)
+new_car <- new_car |> mutate(choice_char = choice_char)
+
+type <- vector("character", nrow(new_car))
+fuel <- vector("character", nrow(new_car))
+price <- vector("numeric", nrow(new_car))
+range <- vector("numeric", nrow(new_car))
+acc <- vector("numeric", nrow(new_car))
+speed <- vector("numeric", nrow(new_car))
+pollution <- vector("numeric", nrow(new_car))
+size <- vector("numeric", nrow(new_car))
+space <- vector("numeric", nrow(new_car))
+cost <- vector("numeric", nrow(new_car))
+station <- vector("numeric", nrow(new_car))
+for (i in 1:nrow(new_car)) {
+  type[i] <- as.character(new_car[i, paste0("type", new_car$choice_char[i], collapse = "")])
+  fuel[i] <- as.character(new_car[i, paste0("fuel", new_car$choice_char[i], collapse = "")])
+  price[i] <- new_car[i, paste0("price", new_car$choice_char[i], collapse = "")]
+  range[i] <- new_car[i, paste0("range", new_car$choice_char[i], collapse = "")]
+  acc[i] <- new_car[i, paste0("acc", new_car$choice_char[i], collapse = "")]
+  speed[i] <- new_car[i, paste0("speed", new_car$choice_char[i], collapse = "")]
+  pollution[i] <- new_car[i, paste0("pollution", new_car$choice_char[i], collapse = "")]
+  size[i] <- new_car[i, paste0("size", new_car$choice_char[i], collapse = "")]
+  space[i] <- new_car[i, paste0("space", new_car$choice_char[i], collapse = "")]
+  cost[i] <- new_car[i, paste0("cost", new_car$choice_char[i], collapse = "")]
+  station[i] <- new_car[i, paste0("station", new_car$choice_char[i], collapse = "")]
+}
+
+new_car <- new_car |> mutate(choice_num= factor(choice_char), type=type, fuel=fuel, price=price, range=range,
+                             acc=acc, speed=speed, pollution=pollution, size=size, space=space, cost=cost,
+                             station=station)
+
+new_car$type <- factor(new_car$type, levels = levels(new_car$type1))
+new_car$fuel <- factor(new_car$fuel, levels = levels(new_car$fuel1))
+```
+
+
+
+
+
+*Númericas a categóricas*
+
+```{r}
+new_car$pollution <- as.numeric(new_car$pollution)
+
+new_car <- new_car |> 
+  mutate(pollution_ready = cut(pollution,
+                         breaks = c(0, 0.5, 0.7, Inf),
+                         labels = c("ecológico", "neutro", "dañino"),
+                         right = TRUE))
+table(new_car$pollution_ready)
+
+
+new_car$size <- as.numeric(new_car$size)  # Asegura que 'size' sea numérico
+
+new_car <- new_car |>
+  mutate(size_segmento = cut(size,
+                        breaks = c(0, 1, 2, 3, Inf),
+                        labels = c("urbanos", "medianos", "crossovers", "todo terreno"),
+                        right = TRUE))
+table(new_car$size_segmento)
+```
+
+
+
+*UNIVARIADO*
+```{r}
+new_car <- new_car |> 
+  mutate(
+    pollution_ready = factor(pollution_ready, levels = levels(new_car$pollution_ready)),
+    size_segmento = factor(size_segmento, levels = levels(new_car$size_segmento)),
+    type = factor(type, levels = levels(new_car$type)),
+    fuel = factor(fuel, levels = levels(new_car$fuel))
+  )
+
+new_car |> 
+  ggplot(aes(x = pollution_ready)) + 
+  geom_bar(color = "black", fill = "white") + 
+  labs(x = "Contaminación de Vehículo", y = "Número de respuestas")
+
+new_car |> 
+  ggplot(aes(x = size_segmento)) + 
+  geom_bar(color = "black", fill = "white") + 
+  labs(x = "Tamaño del vehículo", y = "Número de respuestas")
+
+new_car |> 
+  ggplot(aes(x = type)) + 
+  geom_bar(color = "black", fill = "white") + 
+  labs(x = "Contaminación del vehículo", y = "Número de respuestas")
+
+new_car |> 
+  ggplot(aes(x = fuel)) + 
+  geom_bar(color = "black", fill = "white") + 
+  labs(x = "Tamaño del vehículo", y = "Número de respuestas")
+
+
+```
+
+
+*BIVARIADO*
+```{r}
+tableau <- table(new_car$type,
+new_car$size_segmento)
+
+balloonplot(as.table(tableau),
+            xlab = "Model", ylab = "Choice",
+            dotsize = 3/max(strwidth(19), strheight(19)),
+            dotcolor = "skyblue", text.size = 0.65,
+            main = "Asignar ",
+            label = TRUE, label.size = 0.80,
+            # Scale balloons by volume (or diameter)
+            scale.method = c("volume"), scale.range = c("absolute"),
+            # Space for column/row labels
+            colmar = 1, rowmar = 2,
+            # Display zeros if present
+            show.zeros = TRUE,
+            # Display row and column sums
+            show.margins = TRUE,
+            # Display cumulative margins as cascade plots
+            cum.margins = TRUE)      
+```
+
+
+
+```{r}
+new_car |>  select(type, size) |> summary()
+
+new_car |>  ggplot(aes(x = type, y = size, fill = type)) +
+  geom_violin(trim = TRUE) +
+  geom_boxplot(width = 0.1, fill = "white") + 
+  labs(x="Mode", y = expression("Sidewalk density (km/km"^2*")"), fill = "Mode")
+
+
+new_car |>  ggplot(aes(x = fuel, y = speed, fill = fuel)) +
+  geom_violin(trim = TRUE) +
+  geom_boxplot(width = 0.1, fill = "white") + 
+  labs(x="Mode", y = expression("Sidewalk density (km/km"^2*")"), fill = "Mode")
+
+new_car |>  ggplot(aes(x = range, y = pollution, fill = range)) +
+  geom_violin(trim = TRUE) +
+  geom_boxplot(width = 0.1, fill = "white") + 
+  labs(x="Mode", y = expression("Sidewalk density (km/km"^2*")"), fill = "Mode")
+
+```
+*Multivariado*
+
+```{r}
+new_car |> ggplot(aes(x = type, y = fuel, fill = type)) +
+  geom_density_ridges(jittered_points = TRUE, bandwidth = 3.5,
+                      position = position_points_jitter(width = 0.05, height = 0),
+                      point_shape = '|', point_size = 3, point_alpha = 1, alpha = 0.7)+
+  labs(y="Mode", x = expression("Sidewalk density (km/km"^2*")"), fill = "Mode")
+```
+
+
+
+*¿Qué ideas sobre las elecciones individuales respecto al automóvil desarrolla usted a partir de este ejercicio de AED?*
+
+
+De acuerdo a las variantes que yo elegí, que fueron tamaño y contaminación. Un carro regular que sea eléctrico, es la opción más común y probablemente, la mejor.
