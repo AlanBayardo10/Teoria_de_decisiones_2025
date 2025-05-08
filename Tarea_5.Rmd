@@ -1,0 +1,142 @@
+---
+title: "Tarea 5"
+author: "Alan Christopher Bayardo Ferreira"
+date: "2025-05-05"
+output: html_document
+---
+
+```{r, echo=FALSE, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library(tidyverse)
+library(discrtr)
+library(dplyr) 
+library(ggplot2) 
+library(mlogit)
+library(readr) 
+library(gplots) 
+library(ggmosaic) 
+library(treemapify)
+library(ggridges)
+library(ggalluvial)
+library(evd)
+library(htmlwidgets) 
+library(kableExtra) 
+library(plotly) 
+library(tidyr) 
+library(webshot2) 
+library(evd)
+```
+
+
+**1. ¿Cuál es la diferencia entre un efecto marginal y una elasticidad?**
+
+Un efecto marginal te dice cuánto cambia una variable $y$ cuando haces un pequeño ajuste en otra variable $xk$, como moverla una unidad. En cambio, la elasticidad muestra qué tan sensible es $y$ cuando $xk$ cambia, pero lo hace en términos relativos o porcentuales.
+
+
+
+
+**2. ¿Por qué no es apropiado calcular la elasticidad de una variable dummy?**
+
+Porque no funcionan bien cuando se trata de variables cualitativas, esto es porque no tiene mucho sentido hablar de cambios marginales en este tipo de variables. No tiene lógica, porque no son números continuos.
+
+
+
+
+**3. Usa el Modelo 3 de este capítulo y calcula los efectos marginales y las elasticidades del costo de operación en la media de todas las variables.**
+
+```{r}
+
+data("Heating")
+
+H <- Heating %>% mlogit.data(shape = "wide", choice="depvar", varying=c(3:12))
+
+model3 <- mlogit(depvar ~ ic + oc, data = Heating, shape = "wide", choice = "depvar", reflevel = "ec", varying = 3:12
+)
+
+medias <- Heating[1, ]
+
+mean_cost <- Heating %>%
+  select(starts_with("ic"), starts_with("oc")) %>%
+  summarise(across(.cols = everything(), mean))
+
+medias[3:12] <- mean_cost
+
+efectos_marginales <- effects(model3, covariate = "oc", type = "ra", data = mlogit.data(medias, shape = "wide", choice = "depvar", varying = 3:12))
+print("Efectos marginales:")
+print(efectos_marginales)
+
+elasticidades <- effects(model3, covariate = "oc", type = "rr", data = mlogit.data(medias, shape = "wide", choice = "depvar", varying = 3:12))
+print("Elasticidades:")
+print(elasticidades)
+
+```
+
+
+
+
+**4. Usa el Modelo 3 de este capítulo para calcular el reembolso necesario para alcanzar una tasa de penetración del 10% de las bombas de calor.**
+
+```{r}
+
+rebates <- seq(0, 2000, by = 50)
+
+hp_shares <- numeric(length(rebates))
+
+Heating_original <- Heating
+
+for (i in seq_along(rebates)) {
+  Heating_temp <- Heating_original
+  Heating_temp$ic.hp <- Heating_temp$ic.hp - rebates[i]
+  
+  Heating_long <- mlogit.data(Heating_temp, shape = "wide", choice = "depvar",
+                              varying = 3:12, id.var = "idcase")
+  
+  prob_temp <- predict(model3, newdata = Heating_long, type = "probabilities")
+  
+  hp_shares[i] <- mean(prob_temp[, "hp"])
+}
+
+target_share <- 0.10
+required_rebate <- rebates[min(which(hp_shares >= target_share))]
+required_rebate
+
+```
+
+
+Se requiere de una reducción de 450 unidades para alcanzar el resultado deseado.
+
+
+
+
+**Estima un nuevo modelo que extienda el Modelo 3 incorporando la edad del jefe del hogar. Usa el sistema eléctrico de habitación (“er”) como nivel de referencia.**
+
+```{r}
+
+model4 <- mlogit(depvar ~ ic + oc | agehed, Heating, shape = "wide", choice = "depvar", reflevel = "er", varying = c(3:12))
+
+summary(model4)
+
+```
+
+
+
+**5. Usa el likelihood ratio test para comparar tu nuevo modelo con el Modelo 3. Discute los resultados.**
+
+```{r}
+
+lrtest(model3, model4)
+
+```
+
+La edad del jefe del hogar no influye mucho en la decisión de usar bombas de calor. No muestra una diferencia estadística importante.
+
+
+
+
+
+**6. ¿Es significativo el cociente entre el coeficiente del costo de instalación (u operación) y el coeficiente de la edad del jefe del hogar? Explica.**
+
+
+
+No se puede interpretar directamente los cocientes, ya que se mezclan variables diferentes. Unas dependen de las edades de los sujetos y otras dependen de lo que eligen.

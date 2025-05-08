@@ -1,0 +1,138 @@
+---
+title: "TAREA 4"
+author: "Alan Christopher Bayardo Ferreira"
+date: "2025-04-28"
+output: html_document
+---
+
+```{r, include=FALSE, echo=FALSE}
+library(knitr)
+library(tidyverse)
+library(discrtr)
+library(dplyr)
+library(ggplot2)
+library(mlogit) 
+library(readr)
+library(stargazer) 
+library(gplots)
+library(ggmosaic)
+library(treemapify)
+library(ggridges)
+library(ggalluvial)
+library(evd)
+library(htmlwidgets)
+library(kableExtra)
+library(plotly)
+library(tidyr)
+library(webshot2)
+```
+
+
+```{r}
+
+data("mc_commute_wide", package = "discrtr")
+
+mc_commute_long <- mc_commute_wide |> 
+mlogit.data(shape="wide",
+            choice = "choice",
+            varying = 3:22)
+
+mc_commute_predict <- mc_commute_long[1:52, ]
+mc_commute_predict$sidewalk_density <- rep(seq(from=0, to=60, by=5), each=4)
+
+```
+
+**1. En el ejemplo de este capítulo, estimamos las probabilidades de elegir diferentes modos de transporte según la densidad de aceras, estableciendo el tiempo de viaje en la mediana de la muestra. Utilice el modelo 2 para calcular la probabilidad de elegir diferentes modos de transporte según la mediana de la densidad de aceras de la muestra, pero ahora para tiempos de viaje de 20, 30 y 40 minutos. Analice los resultados.**
+
+```{r}
+
+f2 <- mFormula(choice ~ time | sidewalk_density)
+
+model2 <- mlogit(f2, mc_commute_long)
+
+times <- c(20, 30, 40)
+results <- list()
+
+for (t in times) {
+    mc_commute_predict$time <- t
+    probs <- predict(model2, newdata=mc_commute_predict)
+    results[[as.character(t)]] <- probs
+}
+
+for (t in times) {
+    cat("\nProbabilities for travel time =", t, "minutes:\n")
+    print(results[[as.character(t)]])
+}
+
+```
+
+Aquí, f2 considera que el impacto del tiempo de viaje es uniforme para todas las opciones disponibles. Es decir, un incremento en el tiempo de viaje reduce la utilidad de cada alternativa en la misma medida.
+
+
+
+**2. Estima un modelo usando la fórmula f3 . Analiza el resultado de este modelo.**
+
+```{r}
+
+f3 <- mFormula(choice ~ 0 | sidewalk_density | time)
+
+model3 <- mlogit(f3, mc_commute_long)
+
+summary(model3)
+
+```
+
+El modelo3 considera que cada medio de transporte puede experimentar un efecto distinto ante un incremento en el tiempo de viaje.
+
+
+
+
+3. **Utilice el modelo 3 para calcular la probabilidad de elegir diferentes modos de transporte según la mediana de densidad de aceras de la muestra, pero ahora para tiempos de viaje de 20, 30 y 40 minutos. Analice los resultados.**
+
+```{r}
+
+times <- c(20, 30, 40)
+results <- list()
+
+for (t in times) {
+    mc_commute_predict$time <- t
+    probs <- predict(model3, newdata=mc_commute_predict)
+    results[[as.character(t)]] <- probs
+}
+
+for (t in times) {
+    cat("\nProbabilities for travel time =", t, "minutes:\n")
+    print(results[[as.character(t)]])
+}
+
+```
+
+
+Cuando el tiempo de viaje aumenta, aumentan las posibilidades de elegir la bicicleta; por otro lado, todos los demás medios de transporte ven su probabilidades disminuidas.
+
+
+
+**4. En el caso general, ¿cuál es el valor de la log-verosimilitud del modelo nulo?**
+
+```{r}
+
+f0 <- mFormula(choice ~ 1)
+model0 <- mlogit(f0, mc_commute_long)
+summary(model0)
+
+```
+
+La log-verosimilitud del modelo nulo es de: -1547.2
+
+
+
+**5. Utiliza la prueba de razón de verosimilitud para comparar el modelo 3 con el modelo 2. Analice los resultados. ¿Qué restricciones debería imponer en el modelo 3 para obtener el modelo 2?**
+
+```{r}
+
+lrtest(model2, model3)
+
+```
+Se debería de poner una restricción de igualdad en los coeficientes del tiempo de viaje para garantizar un efecto consistente en todas las altenrativas.
+
+
