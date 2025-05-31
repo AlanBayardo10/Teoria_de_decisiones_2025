@@ -1,0 +1,101 @@
+---
+title: 'Tarea 6'
+author: "Alan Christopher Bayardo Ferreira"
+output: html_document
+---
+
+
+
+
+```{r}
+library(mlogit)
+library(dfidx)
+```
+
+
+***Ejercicios del capítulo 7***
+
+
+```{r}
+data("Heating", package = "mlogit")
+
+H <- mlogit.data(Heating, shape = "wide", choice = "depvar", varying = c(3:12))
+
+nl2 <- mlogit(depvar ~ ic + oc, H, nests = list(room = c( 'er', 'gr'), central = c('ec', 'gc', 'hp')), un.nest.el = TRUE, steptol = 1e-12)
+```
+
+
+
+**Ejercicio 2. Usa el modelo nl2 en este capítulo y calcule la elasticidad-punto directo de los valores medios de las variables, para un aumento en los costos de instalación de los sistemas centrales de gas.**
+
+
+
+```{r}
+gc_data <- subset(H, alt == "gc")
+
+mean_ic_gc <- mean(gc_data$ic)
+
+probs <- fitted(nl2, type = "probabilities")
+
+mean_prob_gc <- mean(probs[H$alt == "gc"])
+
+beta_ic <- coef(nl2)["ic"]
+
+elasticity_gc_ic <- beta_ic * mean_ic_gc * (1 - mean_prob_gc)
+elasticity_gc_ic
+```
+
+Por cada aumento del 1% en el precio de instalación del sistema Gas Central, la posibilidad de que sea seleccionado se reduce aproximadamente en un 0.052%.
+
+
+
+
+**Ejercicio 3. Use el modelo nl2 en este capítulo y calcule la elasticidad de punto de cruce de los valores medios de las variables, para un aumento del 1% en los costos de operación de los sistemas de centrales de gas.**
+
+
+
+```{r}
+gc_data <- subset(H, alt == "gc")
+
+mean_oc_gc <- mean(gc_data$oc)
+
+probs <- fitted(nl2, type = "probabilities")
+
+mean_probs <- tapply(probs, H$alt, mean)
+
+beta_oc <- coef(nl2)["oc"]
+
+P_ec <- mean_probs["ec"]
+P_gc <- mean_probs["gc"]
+
+elasticity_cross_ec_gc <- -beta_oc * mean_oc_gc * (P_gc / P_ec)
+elasticity_cross_ec_gc
+```
+
+Cada vez que el costo de operación del sistema Gas Central sube un 1%, la probabilidad de que los consumidores opten por otra alternativa se incrementa aproximadamente en un 0.039%.
+
+
+
+
+**Ejercicio 4. Vuelva a estimar el modelo logit anidado en este capítulo, pero cambie los nidos a tipos de energía de la siguiente manera:**
+ **• Gas: gas central, gas room.**
+ **• Electricity: electric central, electric room, heat pump.**
+
+
+
+```{r}
+nests_energy <- list(
+  gas = c("gc", "gr"),        
+  electricity = c("ec", "er", "hp")
+)
+
+nl_energy <- mlogit(depvar ~ ic + oc, data = H,
+                    nests = nests_energy,
+                    un.nest.el = TRUE)
+
+summary(nl_energy)
+```
+
+
+
+Los resultados parecen ser  coherentes. Los costos de instalación y operación tienen un impacto negativo y significativo, lo que concuerda con la teoría que establece que a medida que los costos aumentan, la utilidad para los consumidores disminuye.
